@@ -109,26 +109,6 @@ Item { // Bar content region
         spacing: 4
 
         BarGroup {
-            id: leftCenterGroup
-            anchors.verticalCenter: parent.verticalCenter
-            implicitWidth: root.centerSideModuleWidth
-
-            Resources {
-                alwaysShowAllResources: root.useShortenedForm === 2
-                Layout.fillWidth: root.useShortenedForm === 2
-            }
-
-            Media {
-                visible: root.useShortenedForm < 2
-                Layout.fillWidth: true
-            }
-        }
-
-        VerticalBarSeparator {
-            visible: Config.options?.bar.borderless
-        }
-
-        BarGroup {
             id: middleCenterGroup
             anchors.verticalCenter: parent.verticalCenter
             padding: workspacesWidget.widgetPadding
@@ -167,12 +147,6 @@ Item { // Bar content region
             BarGroup {
                 id: rightCenterGroupContent
                 anchors.fill: parent
-
-                ClockWidget {
-                    showDate: (Config.options.bar.verbose && root.useShortenedForm < 2)
-                    Layout.alignment: Qt.AlignVCenter
-                    Layout.fillWidth: true
-                }
 
                 UtilButtons {
                     visible: (Config.options.bar.verbose && root.useShortenedForm === 0)
@@ -322,6 +296,18 @@ Item { // Bar content region
                 Layout.fillWidth: false
                 Layout.fillHeight: true
                 invertSide: Config?.options.bar.bottom
+            }
+
+            ClockWidget { // Time, just left of the tray; date removed by default
+                showDate: false
+                Layout.alignment: Qt.AlignVCenter
+                Layout.leftMargin: 4
+                Layout.rightMargin: 4
+            }
+
+            Media {
+                visible: root.useShortenedForm < 2
+                Layout.alignment: Qt.AlignVCenter
             }
 
             Item {
