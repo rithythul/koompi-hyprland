@@ -25,6 +25,8 @@ declare -a TEMP_FILES_TO_CLEANUP=()
 
 # Used by install script
 BACKUP_DIR="${BACKUP_DIR:-$HOME/ii-original-dots-backup}"
-DOTS_CORE_CONFDIR="${XDG_CONFIG_HOME}/illogical-impulse"
+# Migrate pre-rebrand state dir to the koompi name (config.json + installed_listfile etc.) so existing installs keep their settings and install-tracking.
+[ -d "${XDG_CONFIG_HOME}/illogical-impulse" ] && [ ! -d "${XDG_CONFIG_HOME}/koompi" ] && mv "${XDG_CONFIG_HOME}/illogical-impulse" "${XDG_CONFIG_HOME}/koompi"
+DOTS_CORE_CONFDIR="${XDG_CONFIG_HOME}/koompi"
 INSTALLED_LISTFILE="${DOTS_CORE_CONFDIR}/installed_listfile"
 FIRSTRUN_FILE="${DOTS_CORE_CONFDIR}/installed_true"
