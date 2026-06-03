@@ -193,6 +193,13 @@ Item { // Bar content region
             spacing: 5
             layoutDirection: Qt.RightToLeft
 
+            ClockWidget { // Time, far-right corner; date removed by default
+                showDate: false
+                Layout.alignment: Qt.AlignVCenter
+                Layout.rightMargin: Appearance.rounding.screenRounding
+                Layout.leftMargin: 4
+            }
+
             RippleButton { // Right sidebar button
                 id: rightSidebarButton
 
@@ -299,13 +306,6 @@ Item { // Bar content region
                 UtilButtons {
                     Layout.alignment: Qt.AlignVCenter
                 }
-            }
-
-            ClockWidget { // Time, just left of the tray; date removed by default
-                showDate: false
-                Layout.alignment: Qt.AlignVCenter
-                Layout.leftMargin: 4
-                Layout.rightMargin: 4
             }
 
             Media {
