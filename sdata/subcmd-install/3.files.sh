@@ -229,6 +229,11 @@ if [[ ! "$OS_GROUP_ID" == "fedora" ]]; then
 fi
 
 #####################################################################################
+# Seed bundled KOOMPI wallpapers into the selector dir (Ctrl+Super+T). Idempotent: cp -n never overwrites user files.
+v mkdir -p "${HOME}/Pictures/Wallpapers"
+x cp -n "${REPO_ROOT}"/wallpapers/* "${HOME}/Pictures/Wallpapers/" 2>/dev/null || true
+
+#####################################################################################
 
 v gen_firstrun
 v dedup_and_sort_listfile "${INSTALLED_LISTFILE}" "${INSTALLED_LISTFILE}"
