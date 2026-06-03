@@ -69,7 +69,7 @@ ApplicationWindow {
 
     visible: true
     onClosing: Qt.quit()
-    title: "illogical-impulse Settings"
+    title: "KOOMPI Settings"
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()

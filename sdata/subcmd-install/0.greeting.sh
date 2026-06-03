@@ -7,10 +7,9 @@
 
 printf "${STY_CYAN}[$0]: Hi there! Before we start:${STY_RST}\n"
 printf "\n"
-printf "${STY_PURPLE}${STY_BOLD}[NEW] illogical-impulse is now powered by Quickshell.${STY_RST}\n"
+printf "${STY_PURPLE}${STY_BOLD}This installs the KOOMPI Hyprland desktop (Quickshell-based).${STY_RST}\n"
 printf "${STY_PURPLE}"
-printf '# NOTE: illogical-impulse on AGS is no longer supported.\n'
-printf '# If you were using the old version with AGS and would like to keep it, do not run this script.\n'
+printf '# Based on end-4/dots-hyprland (illogical-impulse), reskinned for KOOMPI.\n'
 printf "\n"
 pause
 printf "${STY_CYAN}${STY_BOLD}Quick overview about what this script does:${STY_RST}\n"
