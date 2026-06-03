@@ -303,9 +303,10 @@ Item { // Bar content region
                 }
             }
 
-            Media { // Far left; given room since it grows with track title
+            Media { // Far left; capped so a long title elides instead of overlapping workspaces
                 visible: root.useShortenedForm < 2
                 Layout.leftMargin: 4
+                Layout.maximumWidth: root.centerSideModuleWidth
                 Layout.alignment: Qt.AlignVCenter
             }
         }
