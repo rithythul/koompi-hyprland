@@ -135,7 +135,7 @@ Singleton {
                 }
                 property JsonObject palette: JsonObject {
                     property string type: "auto" // Allowed: auto, scheme-content, scheme-expressive, scheme-fidelity, scheme-fruit-salad, scheme-monochrome, scheme-neutral, scheme-rainbow, scheme-tonal-spot
-                    property string accentColor: ""
+                    property string accentColor: "#00A859" // KOOMPI brand green; matugen seed. Material-You stays dynamic per wallpaper.
                 }
             }
 
