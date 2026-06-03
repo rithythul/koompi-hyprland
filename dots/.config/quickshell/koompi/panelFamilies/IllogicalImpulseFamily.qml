@@ -2,26 +2,26 @@ import QtQuick
 import Quickshell
 
 import qs.modules.common
-import qs.modules.ii.background
-import qs.modules.ii.bar
-import qs.modules.ii.cheatsheet
-import qs.modules.ii.dock
-import qs.modules.ii.lock
-import qs.modules.ii.mediaControls
-import qs.modules.ii.notificationPopup
-import qs.modules.ii.onScreenDisplay
-import qs.modules.ii.onScreenKeyboard
-import qs.modules.ii.overview
-import qs.modules.ii.polkit
-import qs.modules.ii.regionSelector
-import qs.modules.ii.screenCorners
-import qs.modules.ii.screenTranslator
-import qs.modules.ii.sessionScreen
-import qs.modules.ii.sidebarLeft
-import qs.modules.ii.sidebarRight
-import qs.modules.ii.overlay
-import qs.modules.ii.verticalBar
-import qs.modules.ii.wallpaperSelector
+import qs.modules.koompi.background
+import qs.modules.koompi.bar
+import qs.modules.koompi.cheatsheet
+import qs.modules.koompi.dock
+import qs.modules.koompi.lock
+import qs.modules.koompi.mediaControls
+import qs.modules.koompi.notificationPopup
+import qs.modules.koompi.onScreenDisplay
+import qs.modules.koompi.onScreenKeyboard
+import qs.modules.koompi.overview
+import qs.modules.koompi.polkit
+import qs.modules.koompi.regionSelector
+import qs.modules.koompi.screenCorners
+import qs.modules.koompi.screenTranslator
+import qs.modules.koompi.sessionScreen
+import qs.modules.koompi.sidebarLeft
+import qs.modules.koompi.sidebarRight
+import qs.modules.koompi.overlay
+import qs.modules.koompi.verticalBar
+import qs.modules.koompi.wallpaperSelector
 
 Scope {
     PanelLoader { extraCondition: !Config.options.bar.vertical; component: Bar {} }
