@@ -130,30 +130,6 @@ Item { // Bar content region
             }
         }
 
-        VerticalBarSeparator {
-            visible: Config.options?.bar.borderless
-        }
-
-        MouseArea {
-            id: rightCenterGroup
-            anchors.verticalCenter: parent.verticalCenter
-            implicitWidth: root.centerSideModuleWidth
-            implicitHeight: rightCenterGroupContent.implicitHeight
-
-            onPressed: {
-                GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
-            }
-
-            BarGroup {
-                id: rightCenterGroupContent
-                anchors.fill: parent
-
-                BatteryIndicator {
-                    visible: (root.useShortenedForm < 2 && Battery.available)
-                    Layout.alignment: Qt.AlignVCenter
-                }
-            }
-        }
     }
 
     FocusedScrollMouseArea { // Right side | scroll to change volume
@@ -289,6 +265,12 @@ Item { // Bar content region
                         color: rightSidebarButton.colText
                     }
                 }
+            }
+
+            BatteryIndicator {
+                visible: (root.useShortenedForm < 2 && Battery.available)
+                Layout.alignment: Qt.AlignVCenter
+                Layout.rightMargin: 4
             }
 
             SysTray {
