@@ -60,5 +60,5 @@ If your changes involves using python package or script, please use the virtual 
 - Launch Hyprland (not the "uwsm-managed" one)
 - For the shell:
   - Open `~/.config/quickshell/koompi` in your code editor.
-  - In a terminal run `pkill qs; qs -c ii` to start the shell in the terminal (for logs).
+  - In a terminal run `pkill qs; qs -c koompi` to start the shell in the terminal (for logs).
   - Make edits in the opened folder. Changes are reloaded live.

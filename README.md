@@ -1,6 +1,7 @@
-# KOOMPI Hyprland
+# KOOMPI OS
 
-KOOMPI's Hyprland desktop, based on [end-4/dots-hyprland](https://github.com/end-4/dots-hyprland) (illogical-impulse) + quickshell.
+The Hyprland desktop for KOOMPI OS. Based on
+[end-4/dots-hyprland](https://github.com/end-4/dots-hyprland) (illogical-impulse) + quickshell.
 
 ## Install
 
