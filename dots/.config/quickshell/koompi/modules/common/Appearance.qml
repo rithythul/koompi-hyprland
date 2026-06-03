@@ -117,8 +117,12 @@ Singleton {
         property color colLayer0Hover: ColorUtils.transparentize(ColorUtils.mix(colLayer0, colOnLayer0, 0.9, root.contentTransparency))
         property color colLayer0Active: ColorUtils.transparentize(ColorUtils.mix(colLayer0, colOnLayer0, 0.8, root.contentTransparency))
         property color colLayer0Border: ColorUtils.mix(root.m3colors.m3outlineVariant, colLayer0, 0.4)
-        // Bar background: fixed brand-tinted dark, independent of wallpaper theming
-        property color colBarBackground: Qt.rgba(8 / 255, 20 / 255, 14 / 255, 0.75)
+        // Bar background: fixed, independent of wallpaper theming.
+        // Dark brand-green in dark mode; moonlight white in light mode so dark
+        // foreground text/icons (colOnLayer0/colSubtext) stay legible.
+        property color colBarBackground: m3colors.darkmode
+            ? Qt.rgba(8 / 255, 20 / 255, 14 / 255, 0.75)
+            : Qt.rgba(246 / 255, 248 / 255, 251 / 255, 0.85)
         // Layer 1
         property color colLayer1Base: m3colors.m3surfaceContainerLow
         property color colLayer1: ColorUtils.solveOverlayColor(colLayer0Base, colLayer1Base, 1 - root.contentTransparency);
