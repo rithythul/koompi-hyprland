@@ -70,3 +70,61 @@ fi
 v gsettings set org.gnome.desktop.interface font-name 'Google Sans Flex Medium 11 @opsz=11,wght=500'
 v gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 v kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle Darkly
+
+#####################################################################################
+# Fingerprint login/unlock (opt-in, per-machine).
+# Never ships enrolled prints: templates live in /var/lib/fprint, outside this repo.
+# 'sufficient' placement means a fingerprint succeeds login but failure/absence
+# always falls through to the password — no lockout risk.
+
+enable_pam_fprintd(){
+  # Arch only: prepend pam_fprintd as the first auth rule in system-auth,
+  # which sddm/sudo/tty/hyprlock all include. Idempotent.
+  local f=/etc/pam.d/system-auth
+  if grep -q pam_fprintd.so "$f"; then
+    log_info "pam_fprintd already configured in $f."
+    return 0
+  fi
+  x sudo cp "$f" "$f.koompi.bak"
+  x sudo sed -i '0,/^auth/s//auth       sufficient                  pam_fprintd.so\n&/' "$f"
+}
+
+setup_fingerprint(){
+  if ! command -v fprintd-enroll >/dev/null 2>&1; then
+    log_warning "fprintd not installed; skipping fingerprint setup."
+    return 0
+  fi
+  if ! fprintd-list "$(whoami)" 2>/dev/null | grep -q "Device at"; then
+    log_info "No supported fingerprint reader detected; skipping fingerprint setup."
+    return 0
+  fi
+  log_success "Fingerprint reader detected."
+  local p=n
+  if $ask; then
+    echo -e "${STY_YELLOW}[$0]: Enroll a fingerprint now for lock screen / login / sudo?${STY_RST}"
+    echo -e "${STY_YELLOW}Your password keeps working as a fallback. Prints stay on this machine only. [y/N]${STY_RST}"
+    read -p "====> " p
+  fi
+  case $p in
+    [yY])
+      x fprintd-enroll "$(whoami)"
+      if ! fprintd-list "$(whoami)" 2>/dev/null | grep -qE "#[0-9]+:"; then
+        log_warning "No fingerprint was enrolled; leaving PAM untouched."
+        return 0
+      fi
+      if [[ "$OS_GROUP_ID" == "arch" ]]; then
+        enable_pam_fprintd
+        log_success "Fingerprint enabled for lock screen, SDDM login, and sudo."
+      else
+        log_success "Fingerprint enrolled — the lock screen will use it."
+        log_warning "Non-Arch: to also use it for login/sudo, add 'auth sufficient pam_fprintd.so' to your PAM stack (Fedora: 'sudo authselect enable-feature with-fingerprint')."
+      fi
+      ;;
+    *)
+      log_info "Skipped fingerprint setup. Run './setup install-setups' later to enroll."
+      ;;
+  esac
+}
+
+showfun setup_fingerprint
+setup_fingerprint

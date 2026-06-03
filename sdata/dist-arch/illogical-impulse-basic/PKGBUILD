@@ -1,7 +1,7 @@
 groups=(illogical-impulse)
 pkgname=illogical-impulse-basic
 pkgver=1.0
-pkgrel=3
+pkgrel=4
 pkgdesc='Illogical Impulse Basic Dependencies'
 arch=(any)
 license=(None)
@@ -18,4 +18,6 @@ depends=(
   # Used in install script
   rsync
   go-yq # https://github.com/mikefarah/yq
+  # Fingerprint login/unlock; lock screen's fprintd.conf needs pam_fprintd. libfprint is pulled in by fprintd.
+  fprintd
 )
