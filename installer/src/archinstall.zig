@@ -288,9 +288,22 @@ pub fn runPostInstallHook(alloc: std.mem.Allocator) !void {
 /// no matter how we leave. ⚠️ Only call after an explicit Review confirmation.
 pub fn run(alloc: std.mem.Allocator, cfg: InstallConfig) !void {
     try writeUserConfiguration(alloc, cfg);
+
+    // Register the shred BEFORE the creds write. A Zig `defer` only fires if
+    // control actually reached it — if writeUserCredentials throws AFTER
+    // createFile (e.g. a flush fails mid-write), a defer placed after it would
+    // never register and the plaintext file would persist on tmpfs. Placing it
+    // first makes "the credential file is shredded no matter how we leave" true.
+    defer cleanupCredentials();
     try writeUserCredentials(alloc, cfg);
-    defer cleanupCredentials(); // secret never survives this function
 
     try runArchinstall(alloc); // ⚠️ destructive — archinstall owns it
+
+    // archinstall is the ONLY consumer of the creds file; shred it eagerly the
+    // moment it exits so the plaintext's RAM lifetime ends here — NOT minutes
+    // later after the chroot hook. cleanupCredentials() swallows ENOENT, so this
+    // is idempotent and the defer above stays as a backstop for the error paths.
+    cleanupCredentials();
+
     try runPostInstallHook(alloc); // finishing touches in the chroot
 }

@@ -6,14 +6,20 @@
 #    point. Do NOT run on a live system.
 #
 # Responsibilities (the ~last 5% archinstall doesn't do for us):
-#   1. snapper config for `/` (+ `/home`), wired to the existing @ / @home subvols
-#   2. the read-only @baseline snapshot = "factory reset to original install"
+#   1. snapper config for `/`, wired to archinstall's existing @ / @snapshots
+#   2. the un-prunable @baseline snapshot = "factory reset to original install"
 #   3. snap-pac  (auto pre/post snapshot per pacman transaction)
-#   4. grub-btrfs (bootable snapshot submenu in GRUB)
+#   4. grub-btrfs (bootable snapshot submenu in GRUB) + the grub-btrfs-overlayfs
+#      initramfs hook so a booted snapshot is a usable read-write system
 #   5. enable sddm.service (belt-and-suspenders: koompi-branding ships a preset
 #      that already enables it — harmless to enable again)
 #   6. write /etc/os-release (NOT shipped by any package — filesystem owns the
 #      stock one; we overwrite with KOOMPI identity)
+#
+# FACTORY RESET (user-facing): roll back to @baseline with
+#   `sudo snapper -c root rollback <N>` (N = the @baseline number from
+#   `snapper -c root list`) then reboot — or pick @baseline from the grub-btrfs
+#   boot menu. (The desktop-only reset is the /etc/skel reseed, handled elsewhere.)
 #
 # Idempotent: safe to re-run. Each step checks before it acts.
 
@@ -63,19 +69,35 @@ setup_snapper() {
     rmdir /.snapshots 2>/dev/null || true
   fi
   snapper -c root create-config /
-  # Re-establish the .snapshots subvol the way archinstall expects it. TODO:
-  # confirm against the exact subvol set archinstall created (@.snapshots etc.).
-  # REVIEW: remount /.snapshots from fstab if archinstall added an entry.
-  systemctl enable --now snapper-timeline.timer snapper-cleanup.timer || true
+  # archinstall+snapper coexistence — the full 5-step dance. `create-config`
+  # just made its OWN .snapshots subvolume nested inside @ (i.e. @/.snapshots).
+  # We must delete it and restore archinstall's REAL @snapshots subvol at
+  # /.snapshots. Otherwise every snapshot we create (including @baseline) lands
+  # in the nested subvol and is HIDDEN the moment fstab remounts @snapshots over
+  # it on the next boot — silently losing the factory-reset point.
+  btrfs subvolume delete /.snapshots 2>/dev/null || true
+  mkdir -p /.snapshots
+  mount /.snapshots 2>/dev/null || mount -a || true
+  if ! btrfs subvolume show /.snapshots >/dev/null 2>&1; then
+    log "WARNING: /.snapshots is not archinstall's @snapshots subvol — the"
+    log "         @baseline snapshot may not persist across reboot."
+  fi
+  # enable-only (no --now: a chroot can't START units; the timer is enabled at
+  # boot). snapper-cleanup auto-prunes, but @baseline is created with NO cleanup
+  # algorithm (see pin_baseline) so it is exempt.
+  systemctl enable snapper-timeline.timer snapper-cleanup.timer || true
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. The @baseline snapshot — a pinned, read-only "this is exactly how the OS
-#    shipped" point. Factory reset = roll back to this. Created LAST among the
-#    snapshot steps so it captures the finished install.
-#    NOTE: a true read-only / un-prunable baseline needs snapper cleanup to skip
-#    it. We tag it and set a userdata flag; REVIEW the exact pin mechanism for
-#    your snapper version (some use `--read-only`, some a cleanup=number guard).
+# 2. The @baseline snapshot — a pinned "this is exactly how the OS shipped"
+#    point. Factory reset = roll back to this. Created near-LAST so it captures
+#    the finished install (os-release + sddm enabled), but BEFORE the final
+#    grub-mkconfig so it appears in the very first boot menu.
+#    UN-PRUNABLE: a snapper snapshot with an EMPTY cleanup field is kept forever.
+#    Assigning `--cleanup-algorithm number` would do the OPPOSITE — it makes the
+#    snapshot eligible for the number-pruner (snap-pac fills that budget fast),
+#    so we deliberately pass NO cleanup algorithm. (snapper creates snapshots
+#    read-only by default, so no explicit `btrfs property set ... ro` is needed.)
 # ─────────────────────────────────────────────────────────────────────────────
 pin_baseline() {
   if snapper -c root list 2>/dev/null | grep -q 'baseline'; then
@@ -83,15 +105,11 @@ pin_baseline() {
     return
   fi
   log "pinning @baseline snapshot (factory-reset point)"
-  # TODO/REVIEW: real flags vary by snapper version. Intent is clear:
-  #   single snapshot, descriptive, excluded from automatic cleanup.
+  # No --cleanup-algorithm => empty cleanup field => never auto-pruned.
   snapper -c root create \
     --type single \
-    --cleanup-algorithm number \
     --userdata "important=yes,baseline=yes" \
     --description "KOOMPI @baseline (factory reset point)"
-  # REVIEW: optionally set the snapshot subvol read-only:
-  #   btrfs property set /.snapshots/<N>/snapshot ro true
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -106,6 +124,30 @@ setup_grub_btrfs() {
   if command -v grub-mkconfig &>/dev/null; then
     grub-mkconfig -o /boot/grub/grub.cfg
   fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4b. Bootable snapshots. grub-btrfs boots a snapshot READ-ONLY; to boot INTO a
+#     snapshot as a usable read-write system (the "boot straight into any
+#     snapshot" promise) the `grub-btrfs-overlayfs` mkinitcpio hook must be in
+#     HOOKS, then the initramfs regenerated. Without it, booting a snapshot drops
+#     to an emergency shell. NOTE: this hook needs the `udev` hook, NOT `systemd`.
+# ─────────────────────────────────────────────────────────────────────────────
+setup_snapshot_boot() {
+  local conf=/etc/mkinitcpio.conf
+  [ -f "$conf" ] || { log "no $conf — skipping snapshot-boot hook"; return; }
+  if grep -q 'grub-btrfs-overlayfs' "$conf"; then
+    log "grub-btrfs-overlayfs hook already present"
+    return
+  fi
+  if grep -qE '^HOOKS=.*\bsystemd\b' "$conf"; then
+    log "WARNING: mkinitcpio uses the systemd hook; grub-btrfs-overlayfs needs"
+    log "         udev. Skipping — snapshot boots stay read-only until reconciled."
+    return
+  fi
+  log "adding grub-btrfs-overlayfs mkinitcpio hook + regenerating initramfs"
+  sed -i -E 's/^(HOOKS=\(.*[^ ]) *\)/\1 grub-btrfs-overlayfs)/' "$conf"
+  mkinitcpio -P || log "WARNING: mkinitcpio regen failed; snapshot boot may be read-only"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -144,11 +186,12 @@ EOF
 main() {
   log "KOOMPI OS post-install hook starting (SCAFFOLD)"
   ensure_pkgs
-  setup_snapper
-  setup_grub_btrfs   # snap-pac is hook-only; grub-btrfs needs wiring
-  pin_baseline       # AFTER tooling is in place, so the baseline is complete
-  enable_login
-  write_os_release
+  setup_snapper       # snapper config + restore archinstall's @snapshots subvol
+  enable_login        # enable sddm BEFORE the baseline so it captures it
+  write_os_release    # bake KOOMPI identity into the baseline too
+  setup_snapshot_boot # grub-btrfs-overlayfs initramfs hook (bootable snapshots)
+  pin_baseline        # snapshot the FINISHED install (un-prunable factory reset)
+  setup_grub_btrfs    # LAST: grub-mkconfig enumerates @baseline into the 1st menu
   log "post-install hook done"
 }
 
