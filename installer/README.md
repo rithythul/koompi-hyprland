@@ -11,6 +11,10 @@ The **KOOMPI installer** sets up **KOOMPI OS — Naga** on your machine.
 It is a deliberately *thin* program: a **Zig + [libvaxis](https://github.com/rockorager/libvaxis)
 TUI face** over the **`archinstall` engine**.
 
+> **Design spec:** [`docs/ui-ux.md`](docs/ui-ux.md) — the authoritative 10-screen
+> flow, the visual/theme system, and the face/engine/spec seams that make the
+> installer rebrandable. The shipped theme is [`themes/koompi.toml`](themes/koompi.toml).
+
 ## The split: face vs. engine
 
 It does **not** reimplement partitioning, encryption, `pacstrap`, or
