@@ -13,10 +13,12 @@
 name: Build KOOMPI packages (SKELETON)
 
 on:
+  # SKELETON: manual-only for now (matches build-iso.yml). A `push:` trigger on
+  # sdata/dist-arch/** is intentionally NOT enabled yet — auto-building every
+  # koompi-* package on each commit would burn Actions minutes and surface red on
+  # a public repo while the pipeline is still a scaffold (no signing key / publish
+  # target). Re-enable the push trigger once SIGN + PUBLISH below is wired.
   workflow_dispatch: {}
-  push:
-    paths:
-      - 'sdata/dist-arch/**'
 
 permissions:
   contents: read
