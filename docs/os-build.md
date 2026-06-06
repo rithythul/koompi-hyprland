@@ -322,13 +322,27 @@ reimplementation of any of that.
    writing `os-release`. It does **not** create subvolumes or install the
    edition — those are archinstall's job.
 
-### Risk: archinstall schema drift
+### Risk: archinstall schema drift — and why we must NOT hand-write the JSON
 
-`archinstall`'s JSON config schema **drifts between releases**. The
-`user_configuration.json` the Zig face emits is coupled to a specific
-`archinstall` version. **Mitigation: PIN an `archinstall` version on the ISO** so
-the emitted JSON always matches the engine that consumes it. Bumping
-`archinstall` becomes a deliberate, tested change rather than an accidental break.
+`archinstall`'s JSON config schema **drifts between releases**, and an adversarial
+audit (verified against `archinstall` source) proved the scaffold's hand-written
+JSON would make a `--silent` install **silently produce a broken system**:
+
+| key | wrong (hand-written) | what archinstall actually reads | effect |
+|-----|----------------------|----------------------------------|--------|
+| disk layout | flat `disk_config: {device, filesystem, encrypt, btrfs_subvolumes}` | `disk_config.device_modifications[].partitions[]` with per-partition `obj_id` UUIDs, `size`/`start` objects, btrfs subvols **nested** under the partition's `btrfs` key | unknown keys ignored → **no disk setup at all** |
+| user password | `"password"` | `"!password"` (plaintext) or `"enc_password"` (hash) | user **silently skipped → no login** |
+| root password | `"root_password"` plaintext | only `"root_enc_password"` (a **hash**) | **passwordless root** |
+| bootloader | top-level `"bootloader"` | `"bootloader_config": {"bootloader": "Grub"}` | dropped → defaults to systemd-boot → **breaks grub-btrfs** |
+| encryption | `encrypt` bool inside `disk_config` | a **separate** top-level `disk_encryption` block | LUKS ignored |
+
+The decisive lesson: `disk_config` needs per-partition `obj_id` UUIDs that **only
+`archinstall` can mint** — they cannot be hand-fabricated. **Mitigation (two
+parts):** (1) **PIN an exact `archinstall` version** on the ISO; (2) **GENERATE**
+`user_configuration.json` / `user_credentials.json` from that pinned
+`archinstall`'s own `--dry-run`/save-config flow and parameterize the result —
+never hand-write them. The literals in `installer/src/archinstall.zig` are
+**shape templates that document the verified schema**, not a runnable config.
 
 ### Targets
 

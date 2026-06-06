@@ -19,6 +19,15 @@ const Edition = config.Edition;
 // archinstall's JSON schema drifts between releases. The ISO MUST pin exactly
 // this version. If you bump it, re-check the serializers below against the new
 // schema and bump together — never one without the other.
+//
+// VERIFIED (2026, against archinstall source): hand-writing this JSON is the
+// WRONG strategy. disk_config requires per-partition `obj_id` UUIDs and
+// size/start objects that only archinstall can mint, and the credential keys are
+// unobvious ("!password" for users; root takes only a HASH). The correct design
+// is to PRODUCE both files from `archinstall --dry-run`/save-config of the pinned
+// release and parameterize them — the literals below are SHAPE TEMPLATES that
+// document the verified schema, not a runnable config. (Upstream archinstall is
+// ~4.x as of 2026; pin the EXACT release you ship and regenerate from it.)
 // ─────────────────────────────────────────────────────────────────────────────
 pub const ARCHINSTALL_VERSION = "2.8.x"; // TODO: pin the exact release on the ISO
 
@@ -70,7 +79,7 @@ pub fn writeUserConfiguration(alloc: std.mem.Allocator, cfg: InstallConfig) !voi
         \\    "archinstall_version": "{s}"
         \\  }},
         \\
-        \\  "bootloader": "Grub",
+        \\  "bootloader_config": {{ "bootloader": "Grub", "uki": false }},
         \\  "kernels": ["linux"],
         \\
         \\  "locale_config": {{
@@ -82,21 +91,47 @@ pub fn writeUserConfiguration(alloc: std.mem.Allocator, cfg: InstallConfig) !voi
         \\
         \\  "hostname": "{s}",
         \\
-        \\  "// disk_config": "REVIEW: archinstall owns partition+LUKS+btrfs. Below is the INTENT.",
+        \\  "// disk_config": "BLOCKER/REVIEW: the SHAPE below is the real archinstall schema (config_type + device_modifications[].partitions[], with btrfs subvols NESTED under the root partition's `btrfs` key). But the concrete partition objects — obj_id UUIDs and exact size/start — MUST be produced by `archinstall --dry-run`/save-config of the PINNED release; they cannot be hand-fabricated. The old flat {{device,filesystem,encrypt,btrfs_subvolumes}} shape was SILENTLY IGNORED (archinstall reads device_modifications), so under --silent disk setup was a no-op.",
         \\  "disk_config": {{
-        \\    "config_type": "default_layout",
-        \\    "device": "{s}",
-        \\    "filesystem": "{s}",
-        \\    "encrypt": {s},
-        \\    "// subvolumes": "btrfs @ layout — exact names must match the pinned archinstall.",
-        \\    "btrfs_subvolumes": [
-        \\      {{ "name": "@",          "mountpoint": "/" }},
-        \\      {{ "name": "@home",      "mountpoint": "/home" }},
-        \\      {{ "name": "@var_log",   "mountpoint": "/var/log" }},
-        \\      {{ "name": "@var_cache", "mountpoint": "/var/cache" }},
-        \\      {{ "name": "@snapshots", "mountpoint": "/.snapshots" }}
+        \\    "config_type": "manual_partitioning",
+        \\    "device_modifications": [
+        \\      {{
+        \\        "device": "{s}",
+        \\        "wipe": true,
+        \\        "partitions": [
+        \\          {{
+        \\            "// REVIEW": "EFI system partition — obj_id/size come from archinstall save-config",
+        \\            "obj_id": "<GENERATED-UUID>",
+        \\            "status": "create",
+        \\            "type": "primary",
+        \\            "fs_type": "fat32",
+        \\            "size": {{ "unit": "MiB", "value": 512 }},
+        \\            "start": {{ "unit": "MiB", "value": 1 }},
+        \\            "mountpoint": "/boot",
+        \\            "flags": ["boot", "esp"]
+        \\          }},
+        \\          {{
+        \\            "// REVIEW": "root partition holds the btrfs @ layout; its OWN mountpoint is null",
+        \\            "obj_id": "<GENERATED-UUID>",
+        \\            "status": "create",
+        \\            "type": "primary",
+        \\            "fs_type": "{s}",
+        \\            "size": {{ "unit": "Percent", "value": 100 }},
+        \\            "start": {{ "unit": "MiB", "value": 513 }},
+        \\            "mountpoint": null,
+        \\            "btrfs": [
+        \\              {{ "name": "@",          "mountpoint": "/" }},
+        \\              {{ "name": "@home",      "mountpoint": "/home" }},
+        \\              {{ "name": "@var_log",   "mountpoint": "/var/log" }},
+        \\              {{ "name": "@var_cache", "mountpoint": "/var/cache" }},
+        \\              {{ "name": "@snapshots", "mountpoint": "/.snapshots" }}
+        \\            ]
+        \\          }}
+        \\        ]
+        \\      }}
         \\    ]
         \\  }},
+        \\  "// disk_encryption": "LUKS is a SEPARATE top-level block (disk_encryption), NOT an encrypt field inside disk_config. Encryption requested: {s}. When true, add a top-level disk_encryption block of encryption_type luks that lists the root partition obj_id.",
         \\
         \\  "// packages": "the chosen KOOMPI edition metapackage drives everything else",
         \\  "packages": ["{s}"],
@@ -112,7 +147,7 @@ pub fn writeUserConfiguration(alloc: std.mem.Allocator, cfg: InstallConfig) !voi
         cfg.hostname,
         cfg.disk_path,
         if (cfg.btrfs) "btrfs" else "ext4",
-        if (cfg.encrypt) "true" else "false",
+        if (cfg.encrypt) "yes" else "no",
         pkg,
     });
 
@@ -137,23 +172,29 @@ pub fn writeUserCredentials(alloc: std.mem.Allocator, cfg: InstallConfig) !void 
     var bw = std.io.bufferedWriter(file.writer());
     const w = bw.writer();
 
-    // REVIEW: confirm the exact credential keys for the pinned archinstall
-    // (root password vs. !users list etc.). DO NOT log this writer's input.
+    // KEYS — verified against archinstall source (these are easy to get wrong):
+    //   * a user's plaintext key is "!password", NOT "password". A bare
+    //     "password" is read by NEITHER parser branch, so the user is SILENTLY
+    //     SKIPPED and never created (no login on a --silent install).
+    //   * root accepts ONLY "root_enc_password" (a HASH); there is no plaintext
+    //     root key. We therefore leave root LOCKED and rely on the sudo user.
+    //   DO NOT log this writer's input.
+    // TODO(security): generate creds via the pinned archinstall so the password
+    //   is hashed (enc_password) and never written as plaintext, even to tmpfs.
     try w.print(
         \\{{
-        \\  "root_enc_password": null,
-        \\  "// note": "scaffold emits plaintext fields; archinstall expects these keys",
-        \\  "root_password": "{s}",
+        \\  "// root": "root is intentionally left LOCKED (no password); admin access is via the sudo user below. archinstall reads only root_enc_password (a HASH) and has no plaintext root key, so we omit it rather than ship an unhashable value. To set a root password, generate creds via the pinned archinstall (it hashes and emits root_enc_password).",
         \\  "users": [
         \\    {{
         \\      "username": "{s}",
-        \\      "password": "{s}",
-        \\      "sudo": true
+        \\      "!password": "{s}",
+        \\      "sudo": true,
+        \\      "groups": []
         \\    }}
         \\  ]
         \\}}
         \\
-    , .{ cfg.password, cfg.username, cfg.password });
+    , .{ cfg.username, cfg.password });
 
     try bw.flush();
 }
