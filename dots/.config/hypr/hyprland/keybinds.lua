@@ -51,6 +51,9 @@ hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"),
     { locked = true, repeating = true })
 
+hl.bind("SUPER + Space", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"),
+    { description = "Input: Switch keyboard layout (EN/KM)" })
+
 hl.bind("CTRL + SUPER + T", hl.dsp.global("quickshell:wallpaperSelectorToggle"),
     { description = "Shell: Change wallpaper" })
 hl.bind("CTRL + SUPER + ALT + T", hl.dsp.global("quickshell:wallpaperSelectorRandom"),
